@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hr-ats-frontend
+  namespace: hr-ats
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hr-ats-frontend
+  template:
+    metadata:
+      labels:
+        app: hr-ats-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: hr-ats-frontend:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_URL
+              value: 'https://hr-ats-api.company.com/api/v1'
+          resources:
+            requests:
+              memory: '128Mi'
+              cpu: '100m'
+            limits:
+              memory: '256Mi'
+              cpu: '250m'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hr-ats-frontend
+  namespace: hr-ats
+spec:
+  selector:
+    app: hr-ats-frontend
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hr-ats-ingress
+  namespace: hr-ats
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+    - host: hr-ats.company.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hr-ats-frontend
+                port:
+                  number: 3000
+    - host: hr-ats-api.company.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hr-ats-backend
+                port:
+                  number: 4000

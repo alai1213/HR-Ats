@@ -1,0 +1,410 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== 用户与权限 ====================
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  name         String
+  avatar       String?
+  department   String?
+  isActive     Boolean   @default(true) @map("is_active")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  roles                UserRole[]
+  ownedPositions       Position[]           @relation("PositionOwner")
+  ownedCandidates      Candidate[]          @relation("CandidateOwner")
+  interviews           Interview[]          @relation("Interviewer")
+  interviewFeedbacks   InterviewFeedback[]
+  offerApprovals       OfferApproval[]
+  auditLogs            AuditLog[]
+  recommendationPools  RecommendationPool[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique // HR, INTERVIEWER, HIRING_MANAGER
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  code        String   @unique
+  module      String
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  userId String @map("user_id")
+  roleId String @map("role_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ==================== 职位 ====================
+
+enum PositionStatus {
+  OPEN
+  PAUSED
+  CLOSED
+}
+
+enum PositionPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+model Position {
+  id            String           @id @default(uuid())
+  title         String
+  department    String
+  headcount     Int              @default(1)
+  hiredCount    Int              @default(0) @map("hired_count")
+  ownerId       String           @map("owner_id")
+  description   String?          @db.Text
+  requirements  String?          @db.Text
+  priority      PositionPriority @default(MEDIUM)
+  status        PositionStatus   @default(OPEN)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  owner       User         @relation("PositionOwner", fields: [ownerId], references: [id])
+  candidates  Candidate[]
+
+  @@index([department])
+  @@index([status])
+  @@index([ownerId])
+  @@map("positions")
+}
+
+// ==================== 候选人 ====================
+
+enum CandidateStage {
+  PENDING_SCREENING
+  RESUME_REVIEW
+  HR_INTERVIEW
+  BUSINESS_INTERVIEW
+  FINAL_INTERVIEW
+  OFFER_APPROVAL
+  OFFER_SENT
+  ONBOARDED
+  RESUME_REJECTED
+  INTERVIEW_REJECTED
+  OFFER_REJECTED
+  ONBOARDING_ABANDONED
+}
+
+enum CandidateSource {
+  BOSS_ZHIPIN
+  LIEPIN
+  ZHILIAN
+  LAGOU
+  EMPLOYEE_REFERRAL
+  HEADHUNTER
+  OFFICIAL_WEBSITE
+  OTHER
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model Candidate {
+  id              String          @id @default(uuid())
+  name            String
+  phone           String?
+  email           String?
+  wechat          String?
+  gender          Gender?
+  age             Int?
+  city            String?
+  avatar          String?
+  currentCompany  String?         @map("current_company")
+  currentPosition String?         @map("current_position")
+  workYears       Float?          @map("work_years")
+  education       String?
+  school          String?
+  expectedSalary  String?         @map("expected_salary")
+  positionId      String?         @map("position_id")
+  source          CandidateSource @default(OTHER)
+  stage           CandidateStage  @default(PENDING_SCREENING)
+  ownerId         String?         @map("owner_id")
+  portfolioUrl    String?         @map("portfolio_url")
+  hrNotes         String?         @db.Text @map("hr_notes")
+  skills          String?         @db.Text
+  workExperience  Json?           @map("work_experience")
+  educationHistory Json?          @map("education_history")
+  resumeParsed    Boolean         @default(false) @map("resume_parsed")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  position            Position?            @relation(fields: [positionId], references: [id])
+  owner               User?                @relation("CandidateOwner", fields: [ownerId], references: [id])
+  tags                CandidateTag[]
+  files               CandidateFile[]
+  interviews          Interview[]
+  interviewFeedbacks  InterviewFeedback[]
+  offerApprovals      OfferApproval[]
+  recommendationPool  RecommendationPool?
+
+  @@index([stage])
+  @@index([source])
+  @@index([positionId])
+  @@index([ownerId])
+  @@index([createdAt])
+  @@map("candidates")
+}
+
+model CandidateTag {
+  id          String   @id @default(uuid())
+  candidateId String   @map("candidate_id")
+  tag         String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@map("candidate_tags")
+}
+
+model CandidateFile {
+  id          String   @id @default(uuid())
+  candidateId String   @map("candidate_id")
+  fileName    String   @map("file_name")
+  fileUrl     String   @map("file_url")
+  fileType    String   @map("file_type")
+  fileSize    Int      @map("file_size")
+  isResume    Boolean  @default(false) @map("is_resume")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([candidateId])
+  @@map("candidate_files")
+}
+
+// ==================== 面试 ====================
+
+enum InterviewRound {
+  HR
+  BUSINESS
+  FINAL
+  OTHER
+}
+
+enum InterviewMode {
+  ONLINE
+  OFFLINE
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+model Interview {
+  id            String          @id @default(uuid())
+  candidateId   String          @map("candidate_id")
+  round         InterviewRound
+  scheduledAt   DateTime        @map("scheduled_at")
+  startTime     DateTime        @map("start_time")
+  endTime       DateTime        @map("end_time")
+  interviewerId String          @map("interviewer_id")
+  mode          InterviewMode   @default(ONLINE)
+  status        InterviewStatus @default(SCHEDULED)
+  notes         String?         @db.Text
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+
+  candidate         Candidate            @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  interviewer       User                 @relation("Interviewer", fields: [interviewerId], references: [id])
+  feedbacks         InterviewFeedback[]
+  feishuCalendarEvent FeishuCalendarEvent?
+
+  @@index([candidateId])
+  @@index([interviewerId])
+  @@index([scheduledAt])
+  @@map("interviews")
+}
+
+// ==================== 面试评价 ====================
+
+enum FeedbackResult {
+  PASS
+  FAIL
+  PENDING
+}
+
+enum SuggestedLevel {
+  JUNIOR
+  MID
+  SENIOR
+  EXPERT
+}
+
+model InterviewFeedback {
+  id              String         @id @default(uuid())
+  interviewId     String         @map("interview_id")
+  candidateId     String         @map("candidate_id")
+  evaluatorId     String         @map("evaluator_id")
+  technicalScore  Int?           @map("technical_score")
+  communicationScore Int?        @map("communication_score")
+  projectScore    Int?           @map("project_score")
+  overallComment  String?        @db.Text @map("overall_comment")
+  result          FeedbackResult @default(PENDING)
+  suggestedLevel  SuggestedLevel? @map("suggested_level")
+  detailComment   String?        @db.Text @map("detail_comment")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  evaluator User      @relation(fields: [evaluatorId], references: [id])
+
+  @@index([candidateId])
+  @@index([interviewId])
+  @@index([evaluatorId])
+  @@map("interview_feedbacks")
+}
+
+// ==================== Offer 审批 ====================
+
+enum OfferApprovalStatus {
+  HR_SUBMITTED
+  MANAGER_APPROVED
+  MANAGER_REJECTED
+  HR_CONFIRMED
+  OFFER_SENT
+  CANCELLED
+}
+
+model OfferApproval {
+  id            String              @id @default(uuid())
+  candidateId   String              @map("candidate_id")
+  submitterId   String              @map("submitter_id")
+  status        OfferApprovalStatus @default(HR_SUBMITTED)
+  salary        String?
+  startDate     DateTime?           @map("start_date")
+  notes         String?             @db.Text
+  approvalNotes String?             @db.Text @map("approval_notes")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  submitter User      @relation(fields: [submitterId], references: [id])
+
+  @@index([candidateId])
+  @@index([status])
+  @@map("offer_approvals")
+}
+
+// ==================== 推荐池 ====================
+
+model RecommendationPool {
+  id          String   @id @default(uuid())
+  candidateId String   @unique @map("candidate_id")
+  addedById   String   @map("added_by_id")
+  highlight   String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  candidate Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  addedBy   User      @relation(fields: [addedById], references: [id])
+
+  @@map("recommendation_pool")
+}
+
+// ==================== 邮件模板 ====================
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String   @unique
+  subject   String
+  body      String   @db.Text
+  variables Json?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("email_templates")
+}
+
+// ==================== 操作日志 ====================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?  @map("user_id")
+  action     String
+  module     String
+  targetId   String?  @map("target_id")
+  targetType String?  @map("target_type")
+  detail     Json?
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([module])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ==================== 飞书日历 ====================
+
+model FeishuCalendarEvent {
+  id            String   @id @default(uuid())
+  interviewId   String   @unique @map("interview_id")
+  eventId       String   @map("event_id")
+  calendarLink  String   @map("calendar_link")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  interview Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  @@map("feishu_calendar_events")
+}
