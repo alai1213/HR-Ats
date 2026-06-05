@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: hr-ats-backend:latest
+          image: ghcr.io/alai1213/hr-ats-backend:v1.0.1
           ports:
             - containerPort: 4000
           env:

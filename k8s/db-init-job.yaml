@@ -1,0 +1,25 @@
+# 一次性数据库初始化 Job（可选）
+# 在后端 Deployment 之前执行，用于单独排查建表/种子数据问题
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hr-ats-db-init
+  namespace: hr-ats
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: db-init
+          # 与 backend Deployment 使用同一镜像
+          image: ghcr.io/alai1213/hr-ats-backend:v1.0.1
+          command: ["sh", "-c"]
+          args:
+            - npx prisma migrate deploy && npx prisma db seed
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hr-ats-secrets
+                  key: DATABASE_URL
