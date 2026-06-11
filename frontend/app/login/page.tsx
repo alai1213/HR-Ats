@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuthStore } from "@/lib/store";
 import { ApiClient } from "@/lib/api";
-import { useToast } from "@/components/ui/toast";
+import { useToast } from "@/components/ui/use-toast";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
