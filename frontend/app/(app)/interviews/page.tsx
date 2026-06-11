@@ -1,57 +1,88 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useQuery } from "@tanstack/react-query";
+import { ApiClient } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
+interface Interview {
+  id: string;
+  candidateName: string;
+  positionTitle: string;
+  interviewerName: string;
+  scheduledAt: string;
+  status: string;
+  type: string;
+}
+
+interface PagedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+function fetchInterviews(): Promise<PagedResponse<Interview>> {
+  return ApiClient.get<PagedResponse<Interview>>("/interviews");
+}
 
 export default function InterviewsPage() {
   const { data, isLoading } = useQuery({
-    queryKey: ['interviews'],
-    queryFn: () => api.get<any>('/interviews?page=1&pageSize=50'),
+    queryKey: ["interviews"],
+    queryFn: fetchInterviews,
   });
+
+  const interviews = data?.data ?? [];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">面试管理</h2>
-        <Button>安排面试</Button>
-      </div>
-
+      <h1 className="text-2xl font-bold tracking-tight">Interviews</h1>
       <Card>
-        <CardContent className="pt-6">
+        <CardHeader>
+          <CardTitle>Interview Schedule</CardTitle>
+        </CardHeader>
+        <CardContent>
           {isLoading ? (
-            <p>加载中...</p>
+            <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>候选人</TableHead>
-                  <TableHead>轮次</TableHead>
-                  <TableHead>面试时间</TableHead>
-                  <TableHead>面试官</TableHead>
-                  <TableHead>方式</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>飞书日历</TableHead>
+                  <TableHead>Candidate</TableHead>
+                  <TableHead>Position</TableHead>
+                  <TableHead>Interviewer</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Scheduled</TableHead>
+                  <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data?.data?.map((iv: any) => (
-                  <TableRow key={iv.id}>
-                    <TableCell className="font-medium">{iv.candidate?.name}</TableCell>
-                    <TableCell>{iv.round}</TableCell>
-                    <TableCell>{new Date(iv.scheduledAt).toLocaleString('zh-CN')}</TableCell>
-                    <TableCell>{iv.interviewer?.name}</TableCell>
-                    <TableCell>{iv.mode === 'ONLINE' ? '线上' : '线下'}</TableCell>
-                    <TableCell><Badge variant="secondary">{iv.status}</Badge></TableCell>
+                {interviews.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      No interviews found
+                    </TableCell>
+                  </TableRow>
+                )}
+                {interviews.map((i) => (
+                  <TableRow key={i.id}>
+                    <TableCell className="font-medium">{i.candidateName}</TableCell>
+                    <TableCell>{i.positionTitle}</TableCell>
+                    <TableCell>{i.interviewerName}</TableCell>
+                    <TableCell>{i.type}</TableCell>
+                    <TableCell>{new Date(i.scheduledAt).toLocaleString()}</TableCell>
                     <TableCell>
-                      {iv.feishuCalendarEvent ? (
-                        <a href={iv.feishuCalendarEvent.calendarLink} target="_blank" rel="noreferrer" className="text-primary hover:underline text-sm">
-                          查看日历
-                        </a>
-                      ) : '-'}
+                      <Badge variant={i.status === "COMPLETED" ? "default" : i.status === "CANCELLED" ? "destructive" : "secondary"}>
+                        {i.status}
+                      </Badge>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -1,0 +1,59 @@
+server:
+  port: ${PORT:4000}
+  servlet:
+    context-path: /api/v1
+
+spring:
+  application:
+    name: hr-ats-backend
+  datasource:
+    url: ${DATABASE_URL:jdbc:mariadb://localhost:3306/hr_ats?useUnicode=true&characterEncoding=utf8&useSSL=false}
+    username: ${DB_USER:hr_user}
+    password: ${DB_PASSWORD:hr_password}
+    driver-class-name: org.mariadb.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MariaDBDialect
+        format_sql: true
+  mail:
+    host: ${SMTP_HOST:localhost}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}
+    password: ${SMTP_PASS:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:hr-ats-jwt-secret-dev}
+    expiration-ms: ${JWT_EXPIRATION:604800000}
+  cors:
+    origins: ${CORS_ORIGIN:http://localhost:3000}
+  frontend:
+    url: ${FRONTEND_URL:http://localhost:3000}
+  minio:
+    endpoint: ${MINIO_ENDPOINT:localhost}
+    port: ${MINIO_PORT:9000}
+    secure: ${MINIO_USE_SSL:false}
+    access-key: ${MINIO_ACCESS_KEY:minioadmin}
+    secret-key: ${MINIO_SECRET_KEY:minioadmin}
+    bucket: ${MINIO_BUCKET:hr-ats}
+    public-url: ${MINIO_PUBLIC_URL:http://localhost:9000}
+  feishu:
+    app-id: ${FEISHU_APP_ID:}
+    app-secret: ${FEISHU_APP_SECRET:}
+
+springdoc:
+  api-docs:
+    path: /docs/api-docs
+  swagger-ui:
+    path: /docs
+    operationsSorter: method

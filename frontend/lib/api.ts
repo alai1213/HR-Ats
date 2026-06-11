@@ -1,56 +1,71 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 
-class ApiClient {
-  private getToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('token');
-  }
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/v1";
 
-  private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const token = this.getToken();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string>),
-    };
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const res = await fetch(`${API_URL}${path}`, { ...options, headers });
-    if (!res.ok) {
-      const error = await res.json().catch(() => ({ message: res.statusText }));
-      throw new Error(error.message || '请求失败');
-    }
-    return res.json();
-  }
-
-  get<T>(path: string) {
-    return this.request<T>(path);
-  }
-
-  post<T>(path: string, body?: unknown) {
-    return this.request<T>(path, { method: 'POST', body: JSON.stringify(body) });
-  }
-
-  patch<T>(path: string, body?: unknown) {
-    return this.request<T>(path, { method: 'PATCH', body: JSON.stringify(body) });
-  }
-
-  delete<T>(path: string) {
-    return this.request<T>(path, { method: 'DELETE' });
-  }
-
-  async upload<T>(path: string, file: File): Promise<T> {
-    const token = this.getToken();
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const res = await fetch(`${API_URL}${path}`, {
-      method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: formData,
-    });
-    if (!res.ok) throw new Error('上传失败');
-    return res.json();
-  }
+function getToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem("token");
 }
 
-export const api = new ApiClient();
+async function request<T>(
+  method: HttpMethod,
+  endpoint: string,
+  body?: unknown,
+  headers?: Record<string, string>
+): Promise<T> {
+  const url = `${BASE_URL}${endpoint}`;
+  const token = getToken();
+
+  const defaultHeaders: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...headers,
+  };
+
+  const options: RequestInit = {
+    method,
+    headers: defaultHeaders,
+  };
+
+  if (body && !(body instanceof FormData)) {
+    options.body = JSON.stringify(body);
+  } else if (body instanceof FormData) {
+    delete defaultHeaders["Content-Type"];
+    options.body = body;
+  }
+
+  const response = await fetch(url, options);
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || `HTTP ${response.status}`);
+  }
+
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return response.json();
+}
+
+export class ApiClient {
+  static get<T>(endpoint: string): Promise<T> {
+    return request<T>("GET", endpoint);
+  }
+
+  static post<T>(endpoint: string, body?: unknown): Promise<T> {
+    return request<T>("POST", endpoint, body);
+  }
+
+  static patch<T>(endpoint: string, body?: unknown): Promise<T> {
+    return request<T>("PATCH", endpoint, body);
+  }
+
+  static delete<T>(endpoint: string): Promise<T> {
+    return request<T>("DELETE", endpoint);
+  }
+
+  static upload<T>(endpoint: string, formData: FormData): Promise<T> {
+    return request<T>("POST", endpoint, formData);
+  }
+}

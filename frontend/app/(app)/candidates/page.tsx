@@ -1,135 +1,100 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import { LayoutGrid, List } from 'lucide-react';
-import { api } from '@/lib/api';
-import { STAGE_LABELS, SOURCE_LABELS } from '@/lib/constants';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ApiClient } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { LayoutGrid, List } from "lucide-react";
+
+interface Candidate {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  status: string;
+  positionTitle?: string;
+  createdAt: string;
+}
+
+interface PagedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+function fetchCandidates(): Promise<PagedResponse<Candidate>> {
+  return ApiClient.get<PagedResponse<Candidate>>("/candidates");
+}
 
 export default function CandidatesPage() {
-  const [view, setView] = useState<'card' | 'table'>('table');
-  const [keyword, setKeyword] = useState('');
-  const [stage, setStage] = useState('');
-  const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<string[]>([]);
-
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['candidates', page, keyword, stage],
-    queryFn: () => {
-      const params = new URLSearchParams({ page: String(page), pageSize: '20' });
-      if (keyword) params.set('keyword', keyword);
-      if (stage) params.set('stage', stage);
-      return api.get<any>(`/candidates?${params}`);
-    },
+  const [view, setView] = useState<"table" | "card">("table");
+  const { data, isLoading } = useQuery({
+    queryKey: ["candidates"],
+    queryFn: fetchCandidates,
   });
 
-  const toggleSelect = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  };
-
-  const batchUpdateStage = async (newStage: string) => {
-    if (!selected.length) return;
-    await api.post('/candidates/batch', { ids: selected, stage: newStage });
-    setSelected([]);
-    refetch();
-  };
+  const candidates = data?.data ?? [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">候选人总看板</h2>
+        <h1 className="text-2xl font-bold tracking-tight">Candidates</h1>
         <div className="flex gap-2">
-          <Button variant={view === 'table' ? 'default' : 'outline'} size="icon" onClick={() => setView('table')}>
+          <Button variant={view === "table" ? "default" : "outline"} size="icon" onClick={() => setView("table")}>
             <List className="h-4 w-4" />
           </Button>
-          <Button variant={view === 'card' ? 'default' : 'outline'} size="icon" onClick={() => setView('card')}>
+          <Button variant={view === "card" ? "default" : "outline"} size="icon" onClick={() => setView("card")}>
             <LayoutGrid className="h-4 w-4" />
           </Button>
-          <Button>新增候选人</Button>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4">
-        <Input
-          placeholder="搜索姓名、手机、邮箱、公司..."
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          className="max-w-sm"
-        />
-        <select
-          className="h-9 rounded-md border px-3 text-sm"
-          value={stage}
-          onChange={(e) => setStage(e.target.value)}
-        >
-          <option value="">全部阶段</option>
-          {Object.entries(STAGE_LABELS).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
-        {selected.length > 0 && (
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={() => batchUpdateStage('HR_INTERVIEW')}>
-              批量推进 ({selected.length})
-            </Button>
-            <Button size="sm" variant="outline" onClick={() => api.post('/recommendations/batch', { candidateIds: selected }).then(() => refetch())}>
-              加入推荐池
-            </Button>
-          </div>
-        )}
-      </div>
-
       {isLoading ? (
-        <p>加载中...</p>
-      ) : view === 'table' ? (
+        <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
+      ) : view === "table" ? (
         <Card>
           <CardContent className="pt-6">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-10">
-                    <input type="checkbox" onChange={(e) => {
-                      if (e.target.checked) setSelected(data?.data?.map((c: any) => c.id) || []);
-                      else setSelected([]);
-                    }} />
-                  </TableHead>
-                  <TableHead>姓名</TableHead>
-                  <TableHead>当前公司</TableHead>
-                  <TableHead>职位</TableHead>
-                  <TableHead>阶段</TableHead>
-                  <TableHead>来源</TableHead>
-                  <TableHead>负责人</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Position</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data?.data?.map((c: any) => (
+                {candidates.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                      No candidates found
+                    </TableCell>
+                  </TableRow>
+                )}
+                {candidates.map((c) => (
                   <TableRow key={c.id}>
+                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>{c.email}</TableCell>
+                    <TableCell>{c.phone || "—"}</TableCell>
+                    <TableCell>{c.positionTitle || "—"}</TableCell>
                     <TableCell>
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(c.id)}
-                        onChange={() => toggleSelect(c.id)}
-                      />
+                      <Badge variant="outline">{c.status}</Badge>
                     </TableCell>
-                    <TableCell>
-                      <Link href={`/candidates/${c.id}`} className="font-medium text-primary hover:underline">
-                        {c.name}
-                      </Link>
-                    </TableCell>
-                    <TableCell>{c.currentCompany || '-'}</TableCell>
-                    <TableCell>{c.position?.title || '-'}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{STAGE_LABELS[c.stage]}</Badge>
-                    </TableCell>
-                    <TableCell>{SOURCE_LABELS[c.source]}</TableCell>
-                    <TableCell>{c.owner?.name || '-'}</TableCell>
+                    <TableCell>{new Date(c.createdAt).toLocaleDateString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -138,34 +103,40 @@ export default function CandidatesPage() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {data?.data?.map((c: any) => (
-            <Card key={c.id} className="cursor-pointer hover:shadow-md" onClick={() => window.location.href = `/candidates/${c.id}`}>
-              <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-semibold">{c.name}</h3>
-                    <p className="text-sm text-muted-foreground">{c.currentCompany} · {c.currentPosition}</p>
-                  </div>
-                  <Badge>{STAGE_LABELS[c.stage]}</Badge>
+          {candidates.map((c) => (
+            <Card key={c.id}>
+              <CardHeader className="flex flex-row items-center gap-4">
+                <Avatar>
+                  <AvatarFallback>{c.name.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <CardTitle className="text-base">{c.name}</CardTitle>
+                  <p className="text-sm text-muted-foreground">{c.email}</p>
                 </div>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {c.tags?.map((t: any) => (
-                    <Badge key={t.id} variant="outline">{t.tag}</Badge>
-                  ))}
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Position</span>
+                  <span>{c.positionTitle || "—"}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant="outline">{c.status}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Phone</span>
+                  <span>{c.phone || "—"}</span>
                 </div>
               </CardContent>
             </Card>
           ))}
+          {candidates.length === 0 && (
+            <div className="col-span-full py-8 text-center text-sm text-muted-foreground">
+              No candidates found
+            </div>
+          )}
         </div>
       )}
-
-      <div className="flex justify-between">
-        <p className="text-sm text-muted-foreground">共 {data?.total || 0} 人</p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一页</Button>
-          <Button variant="outline" size="sm" disabled={page >= (data?.totalPages || 1)} onClick={() => setPage(page + 1)}>下一页</Button>
-        </div>
-      </div>
     </div>
   );
 }

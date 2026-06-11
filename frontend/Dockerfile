@@ -1,24 +1,30 @@
-FROM node:20-alpine AS builder
+# syntax=docker/dockerfile:1
+# Frontend Dockerfile - Multi-stage build for Next.js standalone output
 
+# Stage 1: Build
+FROM node:20-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
-RUN npm install
+
+# Install dependencies
+COPY package.json package-lock.json* ./
+RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
+
+# Copy source code and build Next.js standalone output
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
+# Stage 2: Runtime
 FROM node:20-alpine AS runner
-
 WORKDIR /app
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
 
-COPY --from=builder /app/public ./public
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Copy standalone output, static files, and public assets
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 EXPOSE 3000
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
 
 CMD ["node", "server.js"]

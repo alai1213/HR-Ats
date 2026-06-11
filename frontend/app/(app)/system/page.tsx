@@ -1,106 +1,208 @@
-'use client';
+"use client";
 
-import { useQuery } from '@tanstack/react-query';
-import { api } from '@/lib/api';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ApiClient } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface Role {
+  id: string;
+  name: string;
+  description: string;
+}
+
+interface Permission {
+  id: string;
+  resource: string;
+  action: string;
+  description: string;
+}
+
+interface AuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  resource: string;
+  details: string;
+  createdAt: string;
+}
+
+interface PagedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+function fetchRoles(): Promise<Role[]> {
+  return ApiClient.get<Role[]>("/system/roles");
+}
+
+function fetchPermissions(): Promise<Permission[]> {
+  return ApiClient.get<Permission[]>("/system/permissions");
+}
+
+function fetchAuditLogs(): Promise<PagedResponse<AuditLog>> {
+  return ApiClient.get<PagedResponse<AuditLog>>("/system/audit-logs");
+}
 
 export default function SystemPage() {
-  const { data: users } = useQuery({
-    queryKey: ['users'],
-    queryFn: () => api.get<any>('/users?page=1&pageSize=50'),
+  const [activeTab, setActiveTab] = useState("roles");
+
+  const rolesQuery = useQuery({
+    queryKey: ["system", "roles"],
+    queryFn: fetchRoles,
+    enabled: activeTab === "roles",
   });
 
-  const { data: roles } = useQuery({
-    queryKey: ['roles'],
-    queryFn: () => api.get<any[]>('/system/roles'),
+  const permissionsQuery = useQuery({
+    queryKey: ["system", "permissions"],
+    queryFn: fetchPermissions,
+    enabled: activeTab === "permissions",
   });
 
-  const { data: logs } = useQuery({
-    queryKey: ['audit-logs'],
-    queryFn: () => api.get<any>('/system/audit-logs?page=1&pageSize=20'),
+  const auditLogsQuery = useQuery({
+    queryKey: ["system", "audit-logs"],
+    queryFn: fetchAuditLogs,
+    enabled: activeTab === "audit-logs",
   });
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">系统管理</h2>
-        <Button>新增用户</Button>
-      </div>
-
-      <Card>
-        <CardHeader><CardTitle>用户管理</CardTitle></CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>姓名</TableHead>
-                <TableHead>邮箱</TableHead>
-                <TableHead>部门</TableHead>
-                <TableHead>角色</TableHead>
-                <TableHead>状态</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users?.data?.map((u: any) => (
-                <TableRow key={u.id}>
-                  <TableCell className="font-medium">{u.name}</TableCell>
-                  <TableCell>{u.email}</TableCell>
-                  <TableCell>{u.department || '-'}</TableCell>
-                  <TableCell>
-                    {u.roles?.map((r: any) => (
-                      <Badge key={r.roleId} variant="outline" className="mr-1">{r.role.name}</Badge>
+      <h1 className="text-2xl font-bold tracking-tight">System Management</h1>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="roles">Roles</TabsTrigger>
+          <TabsTrigger value="permissions">Permissions</TabsTrigger>
+          <TabsTrigger value="audit-logs">Audit Logs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="roles" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Roles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {rolesQuery.isLoading ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Description</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(rolesQuery.data ?? []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={2} className="text-center text-muted-foreground">
+                          No roles found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {(rolesQuery.data ?? []).map((r) => (
+                      <TableRow key={r.id}>
+                        <TableCell className="font-medium">{r.name}</TableCell>
+                        <TableCell>{r.description}</TableCell>
+                      </TableRow>
                     ))}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={u.isActive ? 'success' : 'destructive'}>
-                      {u.isActive ? '正常' : '禁用'}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>角色管理</CardTitle></CardHeader>
-          <CardContent>
-            {roles?.map((role: any) => (
-              <div key={role.id} className="mb-3 rounded-lg border p-3">
-                <p className="font-medium">{role.name}</p>
-                <p className="text-sm text-muted-foreground">{role.description}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {role.permissions?.length} 项权限 · {role._count?.users} 位用户
-                </p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle>操作日志</CardTitle></CardHeader>
-          <CardContent>
-            <div className="max-h-80 space-y-2 overflow-auto">
-              {logs?.data?.map((log: any) => (
-                <div key={log.id} className="rounded border p-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="font-medium">{log.user?.name || '系统'}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(log.createdAt).toLocaleString('zh-CN')}
-                    </span>
-                  </div>
-                  <p>{log.action} · {log.module} · {log.targetId}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="permissions" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Permissions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {permissionsQuery.isLoading ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Resource</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Description</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(permissionsQuery.data ?? []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground">
+                          No permissions found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {(permissionsQuery.data ?? []).map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-medium">{p.resource}</TableCell>
+                        <TableCell>{p.action}</TableCell>
+                        <TableCell>{p.description}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent value="audit-logs" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Audit Logs</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {auditLogsQuery.isLoading ? (
+                <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Action</TableHead>
+                      <TableHead>Resource</TableHead>
+                      <TableHead>Details</TableHead>
+                      <TableHead>Time</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(auditLogsQuery.data?.data ?? []).length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                          No audit logs found
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    {(auditLogsQuery.data?.data ?? []).map((log) => (
+                      <TableRow key={log.id}>
+                        <TableCell className="font-medium">{log.userName}</TableCell>
+                        <TableCell>{log.action}</TableCell>
+                        <TableCell>{log.resource}</TableCell>
+                        <TableCell>{log.details}</TableCell>
+                        <TableCell>{new Date(log.createdAt).toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

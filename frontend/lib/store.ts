@@ -1,40 +1,34 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface User {
   id: string;
   email: string;
   name: string;
-  roles: string[];
-  permissions: string[];
+  role: string;
 }
 
 interface AuthState {
   token: string | null;
   user: User | null;
-  setAuth: (token: string, user: User) => void;
+  login: (token: string, user: User) => void;
   logout: () => void;
-  hasPermission: (perm: string) => boolean;
+  isAuthenticated: boolean;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       token: null,
       user: null,
-      setAuth: (token, user) => {
-        localStorage.setItem('token', token);
-        set({ token, user });
-      },
-      logout: () => {
-        localStorage.removeItem('token');
-        set({ token: null, user: null });
-      },
-      hasPermission: (perm) => {
-        const { user } = get();
-        return user?.permissions.includes(perm) ?? false;
-      },
+      isAuthenticated: false,
+      login: (token, user) =>
+        set({ token, user, isAuthenticated: true }),
+      logout: () =>
+        set({ token: null, user: null, isAuthenticated: false }),
     }),
-    { name: 'hr-ats-auth' },
-  ),
+    {
+      name: "auth-storage",
+    }
+  )
 );

@@ -1,90 +1,88 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
-import { api } from '@/lib/api';
-import { POSITION_STATUS_LABELS } from '@/lib/constants';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useQuery } from "@tanstack/react-query";
+import { ApiClient } from "@/lib/api";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
+interface Position {
+  id: string;
+  title: string;
+  department: string;
+  location: string;
+  status: string;
+  createdAt: string;
+}
+
+interface PagedResponse<T> {
+  data: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+function fetchPositions(): Promise<PagedResponse<Position>> {
+  return ApiClient.get<PagedResponse<Position>>("/positions");
+}
 
 export default function PositionsPage() {
-  const [keyword, setKeyword] = useState('');
-  const [page, setPage] = useState(1);
-
   const { data, isLoading } = useQuery({
-    queryKey: ['positions', page, keyword],
-    queryFn: () => api.get<any>(`/positions?page=${page}&pageSize=20&keyword=${keyword}`),
+    queryKey: ["positions"],
+    queryFn: fetchPositions,
   });
+
+  const positions = data?.data ?? [];
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">职位管理</h2>
-        <Button>创建职位</Button>
-      </div>
-
+      <h1 className="text-2xl font-bold tracking-tight">Positions</h1>
       <Card>
         <CardHeader>
-          <div className="flex gap-4">
-            <Input
-              placeholder="搜索职位名称、部门..."
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              className="max-w-sm"
-            />
-          </div>
+          <CardTitle>All Positions</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p>加载中...</p>
+            <div className="py-8 text-center text-sm text-muted-foreground">Loading...</div>
           ) : (
-            <>
-              <Table>
-                <TableHeader>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Title</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Location</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Created</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {positions.length === 0 && (
                   <TableRow>
-                    <TableHead>职位名称</TableHead>
-                    <TableHead>部门</TableHead>
-                    <TableHead>招聘人数</TableHead>
-                    <TableHead>已入职</TableHead>
-                    <TableHead>负责人</TableHead>
-                    <TableHead>优先级</TableHead>
-                    <TableHead>状态</TableHead>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      No positions found
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data?.data?.map((pos: any) => (
-                    <TableRow key={pos.id}>
-                      <TableCell className="font-medium">{pos.title}</TableCell>
-                      <TableCell>{pos.department}</TableCell>
-                      <TableCell>{pos.headcount}</TableCell>
-                      <TableCell>{pos.hiredCount}</TableCell>
-                      <TableCell>{pos.owner?.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={pos.priority === 'URGENT' ? 'destructive' : 'secondary'}>
-                          {pos.priority}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={pos.status === 'OPEN' ? 'success' : 'outline'}>
-                          {POSITION_STATUS_LABELS[pos.status]}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <div className="mt-4 flex justify-between">
-                <p className="text-sm text-muted-foreground">共 {data?.total || 0} 条</p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>上一页</Button>
-                  <Button variant="outline" size="sm" disabled={page >= (data?.totalPages || 1)} onClick={() => setPage(page + 1)}>下一页</Button>
-                </div>
-              </div>
-            </>
+                )}
+                {positions.map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium">{p.title}</TableCell>
+                    <TableCell>{p.department}</TableCell>
+                    <TableCell>{p.location}</TableCell>
+                    <TableCell>
+                      <Badge variant={p.status === "OPEN" ? "default" : "secondary"}>{p.status}</Badge>
+                    </TableCell>
+                    <TableCell>{new Date(p.createdAt).toLocaleDateString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

@@ -1,30 +1,30 @@
-FROM node:20-slim AS builder
+# Backend Dockerfile - Multi-stage build using eclipse-temurin
 
+# Stage 1: Build
+FROM eclipse-temurin:17-jdk-alpine AS builder
 WORKDIR /app
 
-# Prisma 需要 OpenSSL，Alpine 镜像容易缺库导致引擎加载失败
-RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install Maven
+RUN apk add --no-cache maven
 
-COPY package*.json ./
-COPY prisma ./prisma/
-RUN npm install
-COPY . .
-RUN npx prisma generate
-RUN npm run build
+# Copy project metadata and source
+COPY pom.xml .
+COPY src ./src
 
-FROM node:20-slim AS runner
+# Build the application
+RUN mvn clean package -DskipTests -B
 
+# Stage 2: Runtime
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-ENV NODE_ENV=production
 
-RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Create a non-root user for security
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
 
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/prisma ./prisma
+# Copy the built JAR from the builder stage
+COPY --from=builder /app/target/*.jar app.jar
 
 EXPOSE 4000
 
-# migrate deploy 需要 prisma/migrations；seed 写入角色/权限/管理员
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && node dist/main"]
+CMD ["java", "-jar", "app.jar"]
