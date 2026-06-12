@@ -29,8 +29,8 @@ public class PermissionCheckAspect {
         List<String> requiredPermissions = Arrays.asList(permissionCheck.value());
         List<String> userPermissions = userDetails.getPermissions();
 
-        // Super admin bypass: system:manage grants all permissions
-        if (userPermissions.contains("system:manage")) {
+        // Super admin bypass: system:manage permission or HR role grants all permissions
+        if (userPermissions.contains("system:manage") || userDetails.getRoles().contains("HR")) {
             return joinPoint.proceed();
         }
 
