@@ -20,10 +20,11 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy standalone output, static files, and public assets
+# Copy standalone output and static files
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
-COPY --from=builder /app/public ./public
+# If your project has a public directory, uncomment the next line:
+# COPY --from=builder /app/public ./public
 
 EXPOSE 3000
 
