@@ -5,6 +5,10 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Accept build-time argument for NEXT_PUBLIC_ variables
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 # Install dependencies
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi

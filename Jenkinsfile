@@ -8,6 +8,8 @@ pipeline {
         REGISTRY = "your-registry.com/hr-ats"
         // K8s 部署命名空间
         K8S_NAMESPACE = "hr-ats"
+        // 前端 API 地址（构建时注入）
+        NEXT_PUBLIC_API_URL = "https://hrats.nova.net.cn/api/v1"
     }
 
     options {
@@ -68,9 +70,11 @@ pipeline {
                         docker tag ${REGISTRY}/backend:${VERSION} ${REGISTRY}/backend:latest
                     """
 
-                    // 构建前端镜像
+                    // 构建前端镜像（传入 NEXT_PUBLIC_API_URL 构建参数）
                     sh """
-                        docker build -t ${REGISTRY}/frontend:${VERSION} ./frontend
+                        docker build \
+                          --build-arg NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
+                          -t ${REGISTRY}/frontend:${VERSION} ./frontend
                         docker tag ${REGISTRY}/frontend:${VERSION} ${REGISTRY}/frontend:latest
                     """
                 }
