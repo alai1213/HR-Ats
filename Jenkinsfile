@@ -54,7 +54,7 @@ pipeline {
             }
         }
 
-        stage('Docker Build') {
+        stage('Docker Build & Push') {
             when {
                 anyOf {
                     branch 'main'
@@ -64,41 +64,55 @@ pipeline {
             }
             steps {
                 script {
-                    // 构建后端镜像
-                    sh """
-                        docker build -t ${REGISTRY}/backend:${VERSION} ./backend
-                        docker tag ${REGISTRY}/backend:${VERSION} ${REGISTRY}/backend:latest
-                    """
-
-                    // 构建前端镜像（传入 NEXT_PUBLIC_API_URL 构建参数）
-                    sh """
-                        docker build \
-                          --build-arg NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
-                          -t ${REGISTRY}/frontend:${VERSION} ./frontend
-                        docker tag ${REGISTRY}/frontend:${VERSION} ${REGISTRY}/frontend:latest
-                    """
-                }
-            }
-        }
-
-        stage('Docker Push') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'backend'
-                    branch 'frontend'
-                }
-            }
-            steps {
-                script {
-                    // 登录镜像仓库并推送（凭据 ID 需提前在 Jenkins 中配置）
                     withCredentials([usernamePassword(credentialsId: 'docker-registry-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
-                            echo \\\$DOCKER_PASS | docker login ${REGISTRY} -u \\\$DOCKER_USER --password-stdin
-                            docker push ${REGISTRY}/backend:${VERSION}
-                            docker push ${REGISTRY}/backend:latest
-                            docker push ${REGISTRY}/frontend:${VERSION}
-                            docker push ${REGISTRY}/frontend:latest
+                            mkdir -p ~/.docker
+                            AUTH=\$(echo -n "\${DOCKER_USER}:\${DOCKER_PASS}" | base64 | tr -d '\\n')
+                            echo "{\\"auths\\":{\\"\${REGISTRY}\\":{\\"auth\\":\\"\${AUTH}\\"}}}" > ~/.docker/config.json
+
+                            # 构建并推送后端镜像
+                            buildctl \\
+                              --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
+                              build \\
+                              --frontend dockerfile.v0 \\
+                              --local context=backend \\
+                              --local dockerfile=backend \\
+                              --import-cache type=registry,ref=\${REGISTRY}/buildcache:backend \\
+                              --export-cache type=registry,ref=\${REGISTRY}/buildcache:backend,mode=max \\
+                              --output type=image,name=\${REGISTRY}/backend:\${VERSION},push=true
+
+                            buildctl \\
+                              --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
+                              build \\
+                              --frontend dockerfile.v0 \\
+                              --local context=backend \\
+                              --local dockerfile=backend \\
+                              --import-cache type=registry,ref=\${REGISTRY}/buildcache:backend \\
+                              --export-cache type=registry,ref=\${REGISTRY}/buildcache:backend,mode=max \\
+                              --output type=image,name=\${REGISTRY}/backend:latest,push=true
+
+                            # 构建并推送前端镜像（传入 NEXT_PUBLIC_API_URL 构建参数）
+                            buildctl \\
+                              --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
+                              build \\
+                              --frontend dockerfile.v0 \\
+                              --local context=frontend \\
+                              --local dockerfile=frontend \\
+                              --opt build-arg:NEXT_PUBLIC_API_URL=\${NEXT_PUBLIC_API_URL} \\
+                              --import-cache type=registry,ref=\${REGISTRY}/buildcache:frontend \\
+                              --export-cache type=registry,ref=\${REGISTRY}/buildcache:frontend,mode=max \\
+                              --output type=image,name=\${REGISTRY}/frontend:\${VERSION},push=true
+
+                            buildctl \\
+                              --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
+                              build \\
+                              --frontend dockerfile.v0 \\
+                              --local context=frontend \\
+                              --local dockerfile=frontend \\
+                              --opt build-arg:NEXT_PUBLIC_API_URL=\${NEXT_PUBLIC_API_URL} \\
+                              --import-cache type=registry,ref=\${REGISTRY}/buildcache:frontend \\
+                              --export-cache type=registry,ref=\${REGISTRY}/buildcache:frontend,mode=max \\
+                              --output type=image,name=\${REGISTRY}/frontend:latest,push=true
                         """
                     }
                 }
@@ -113,11 +127,11 @@ pipeline {
                 script {
                     // 更新 K8s 镜像版本并部署
                     sh """
-                        sed -i 's|image: .*hr-ats-backend.*|image: ${REGISTRY}/backend:${VERSION}|g' k8s/backend.yaml
-                        sed -i 's|image: .*hr-ats-frontend.*|image: ${REGISTRY}/frontend:${VERSION}|g' k8s/frontend.yaml
-                        kubectl apply -f k8s/ -n ${K8S_NAMESPACE}
-                        kubectl rollout status deployment/backend -n ${K8S_NAMESPACE}
-                        kubectl rollout status deployment/frontend -n ${K8S_NAMESPACE}
+                        sed -i 's|image: .*hr-ats-backend.*|image: \${REGISTRY}/backend:\${VERSION}|g' k8s/backend.yaml
+                        sed -i 's|image: .*hr-ats-frontend.*|image: \${REGISTRY}/frontend:\${VERSION}|g' k8s/frontend.yaml
+                        kubectl apply -f k8s/ -n \${K8S_NAMESPACE}
+                        kubectl rollout status deployment/backend -n \${K8S_NAMESPACE}
+                        kubectl rollout status deployment/frontend -n \${K8S_NAMESPACE}
                     """
                 }
             }
