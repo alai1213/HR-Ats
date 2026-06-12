@@ -39,6 +39,7 @@ pipeline {
                             AUTH=\$(echo -n "\${DOCKER_USER}:\${DOCKER_PASS}" | base64 | tr -d '\\n')
                             echo "{\\"auths\\":{\\"\${REGISTRY}\\":{\\"auth\\":\\"\${AUTH}\\"}}}" > ~/.docker/config.json
 
+                            echo "Jenkins env NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}"
                             buildctl \\
                               --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
                               build \\
@@ -50,7 +51,7 @@ pipeline {
                               --export-cache type=registry,ref=\${REGISTRY}/buildcache:frontend,mode=max \\
                               --output type=image,name=\${REGISTRY}/frontend:\${VERSION},push=true
 
-                            buildctl \\
+                            buildctl \
                               --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
                               build \\
                               --frontend dockerfile.v0 \\

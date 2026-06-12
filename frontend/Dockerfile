@@ -8,6 +8,7 @@ WORKDIR /app
 # Accept build-time argument for NEXT_PUBLIC_ variables
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+RUN echo ">>> BUILD ARG NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}"
 
 # Install dependencies
 COPY package.json package-lock.json* ./
