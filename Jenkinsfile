@@ -92,6 +92,7 @@ pipeline {
                               --output type=image,name=\${REGISTRY}/backend:latest,push=true
 
                             # 构建并推送前端镜像（传入 NEXT_PUBLIC_API_URL 构建参数）
+                            echo "Jenkins env NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}"
                             buildctl \\
                               --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
                               build \\
