@@ -233,7 +233,7 @@ INSERT INTO roles (id, name, code, description) VALUES
 ('role-int-001', 'INTERVIEWER', 'INTERVIEWER', 'Interviewer role for conducting interviews and providing feedback'),
 ('role-mgr-001', 'HIRING_MANAGER', 'HIRING_MANAGER', 'Hiring manager role for position and offer management');
 
--- Insert permissions (perm-001 through perm-016)
+-- Insert permissions (perm-001 through perm-029)
 INSERT INTO permissions (id, name, code, module, description) VALUES
 ('perm-001', 'View Users', 'user:read', 'USER', 'View user accounts'),
 ('perm-002', 'Manage Users', 'user:write', 'USER', 'Create, update, and delete user accounts'),
@@ -250,7 +250,20 @@ INSERT INTO permissions (id, name, code, module, description) VALUES
 ('perm-013', 'View Reports', 'report:read', 'REPORT', 'View system reports and analytics'),
 ('perm-014', 'Manage Settings', 'setting:write', 'SYSTEM', 'Manage system settings'),
 ('perm-015', 'View Audit Logs', 'audit:read', 'AUDIT', 'View audit logs'),
-('perm-016', 'Export Data', 'export:execute', 'EXPORT', 'Export system data');
+('perm-016', 'Export Data', 'export:execute', 'EXPORT', 'Export system data'),
+('perm-017', 'View All Candidates', 'candidate:read:all', 'CANDIDATE', 'View all candidates'),
+('perm-018', 'View Assigned Candidates', 'candidate:read:assigned', 'CANDIDATE', 'View assigned candidates'),
+('perm-019', 'Advance Candidate', 'candidate:advance', 'CANDIDATE', 'Advance candidate stage'),
+('perm-020', 'Delete Candidate', 'candidate:delete', 'CANDIDATE', 'Delete candidate'),
+('perm-021', 'Create Position', 'position:create', 'POSITION', 'Create position'),
+('perm-022', 'Create Interview', 'interview:create', 'INTERVIEW', 'Create interview'),
+('perm-023', 'Approve Offer', 'offer:approve', 'OFFER', 'Approve offer'),
+('perm-024', 'System Manage', 'system:manage', 'SYSTEM', 'System management'),
+('perm-025', 'View Dashboard', 'dashboard:read', 'DASHBOARD', 'View dashboard'),
+('perm-026', 'View All Feedback', 'feedback:read:all', 'FEEDBACK', 'View all feedbacks'),
+('perm-027', 'View Own Feedback', 'feedback:read:own', 'FEEDBACK', 'View own feedbacks'),
+('perm-028', 'Manage Feedback', 'feedback:write', 'FEEDBACK', 'Create/update feedback'),
+('perm-029', 'Manage Recommendations', 'recommendation:write', 'RECOMMENDATION', 'Manage recommendation pool');
 
 -- Map role permissions
 -- HR gets all permissions
@@ -260,17 +273,24 @@ INSERT INTO role_permissions (role_id, permission_id) VALUES
 ('role-hr-001', 'perm-007'), ('role-hr-001', 'perm-008'), ('role-hr-001', 'perm-009'),
 ('role-hr-001', 'perm-010'), ('role-hr-001', 'perm-011'), ('role-hr-001', 'perm-012'),
 ('role-hr-001', 'perm-013'), ('role-hr-001', 'perm-014'), ('role-hr-001', 'perm-015'),
-('role-hr-001', 'perm-016');
+('role-hr-001', 'perm-016'), ('role-hr-001', 'perm-017'), ('role-hr-001', 'perm-018'),
+('role-hr-001', 'perm-019'), ('role-hr-001', 'perm-020'), ('role-hr-001', 'perm-021'),
+('role-hr-001', 'perm-022'), ('role-hr-001', 'perm-023'), ('role-hr-001', 'perm-024'),
+('role-hr-001', 'perm-025'), ('role-hr-001', 'perm-026'), ('role-hr-001', 'perm-027'),
+('role-hr-001', 'perm-028'), ('role-hr-001', 'perm-029');
 
--- INTERVIEWER gets view positions, view candidates, view and manage interviews
+-- INTERVIEWER gets view positions, view candidates, view and manage interviews, feedback
 INSERT INTO role_permissions (role_id, permission_id) VALUES
-('role-int-001', 'perm-005'), ('role-int-001', 'perm-007'), ('role-int-001', 'perm-009'), ('role-int-001', 'perm-010');
+('role-int-001', 'perm-005'), ('role-int-001', 'perm-007'), ('role-int-001', 'perm-009'),
+('role-int-001', 'perm-010'), ('role-int-001', 'perm-018'), ('role-int-001', 'perm-027'),
+('role-int-001', 'perm-028');
 
--- HIRING_MANAGER gets position, candidate, interview, offer, report management
+-- HIRING_MANAGER gets position, candidate, interview, offer, report, dashboard management
 INSERT INTO role_permissions (role_id, permission_id) VALUES
 ('role-mgr-001', 'perm-005'), ('role-mgr-001', 'perm-006'), ('role-mgr-001', 'perm-007'),
 ('role-mgr-001', 'perm-009'), ('role-mgr-001', 'perm-011'), ('role-mgr-001', 'perm-012'),
-('role-mgr-001', 'perm-013');
+('role-mgr-001', 'perm-013'), ('role-mgr-001', 'perm-017'), ('role-mgr-001', 'perm-021'),
+('role-mgr-001', 'perm-022'), ('role-mgr-001', 'perm-023'), ('role-mgr-001', 'perm-025');
 
 -- Insert email templates
 INSERT INTO email_templates (id, name, code, subject, body, variables, is_active) VALUES
