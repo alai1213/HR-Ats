@@ -33,17 +33,33 @@ pipeline {
         stage('Docker Build & Push') {
             steps {
                 script {
-                    sh """
-                        docker build \
-                          --build-arg NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL} \
-                          -t ${REGISTRY}/frontend:${VERSION} ./frontend
-                        docker tag ${REGISTRY}/frontend:${VERSION} ${REGISTRY}/frontend:latest
-                    """
                     withCredentials([usernamePassword(credentialsId: 'docker-registry-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
-                            echo \\\$DOCKER_PASS | docker login ${REGISTRY} -u \\\$DOCKER_USER --password-stdin
-                            docker push ${REGISTRY}/frontend:${VERSION}
-                            docker push ${REGISTRY}/frontend:latest
+                            mkdir -p ~/.docker
+                            AUTH=\$(echo -n "\${DOCKER_USER}:\${DOCKER_PASS}" | base64 | tr -d '\\n')
+                            echo "{\\"auths\\":{\\"\${REGISTRY}\\":{\\"auth\\":\\"\${AUTH}\\"}}}" > ~/.docker/config.json
+
+                            buildctl \\
+                              --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
+                              build \\
+                              --frontend dockerfile.v0 \\
+                              --local context=frontend \\
+                              --local dockerfile=frontend \\
+                              --opt build-arg:NEXT_PUBLIC_API_URL=\${NEXT_PUBLIC_API_URL} \\
+                              --import-cache type=registry,ref=\${REGISTRY}/buildcache:frontend \\
+                              --export-cache type=registry,ref=\${REGISTRY}/buildcache:frontend,mode=max \\
+                              --output type=image,name=\${REGISTRY}/frontend:\${VERSION},push=true
+
+                            buildctl \\
+                              --addr tcp://buildkitd.jenkins.svc.cluster.local:1234 \\
+                              build \\
+                              --frontend dockerfile.v0 \\
+                              --local context=frontend \\
+                              --local dockerfile=frontend \\
+                              --opt build-arg:NEXT_PUBLIC_API_URL=\${NEXT_PUBLIC_API_URL} \\
+                              --import-cache type=registry,ref=\${REGISTRY}/buildcache:frontend \\
+                              --export-cache type=registry,ref=\${REGISTRY}/buildcache:frontend,mode=max \\
+                              --output type=image,name=\${REGISTRY}/frontend:latest,push=true
                         """
                     }
                 }
@@ -54,9 +70,9 @@ pipeline {
             steps {
                 script {
                     sh """
-                        sed -i 's|image: .*hr-ats-frontend.*|image: ${REGISTRY}/frontend:${VERSION}|g' k8s/frontend.yaml
-                        kubectl apply -f k8s/frontend.yaml -n ${K8S_NAMESPACE}
-                        kubectl rollout status deployment/frontend -n ${K8S_NAMESPACE}
+                        sed -i 's|image: .*hr-ats-frontend.*|image: \${REGISTRY}/frontend:\${VERSION}|g' k8s/frontend.yaml
+                        kubectl apply -f k8s/frontend.yaml -n \${K8S_NAMESPACE}
+                        kubectl rollout status deployment/frontend -n \${K8S_NAMESPACE}
                     """
                 }
             }
