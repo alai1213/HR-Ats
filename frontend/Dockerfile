@@ -2,8 +2,7 @@
 # Frontend Dockerfile - Multi-stage build for Next.js standalone output
 
 # Stage 1: Build
-#FROM node:20-alpine AS builder
-FROM node:20-slim AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install dependencies
